@@ -1,7 +1,7 @@
 package com.raftimpl.raft.storage;
 
 import com.raftimpl.raft.proto.RaftProto;
-import com.raftimpl.raft.util.RaftFIleUtils;
+import com.raftimpl.raft.util.RaftFileUtils;
 import lombok.Getter;
 import org.apache.commons.io.FileUtils;
 import org.slf4j.Logger;
@@ -55,7 +55,7 @@ public class SegmentedLog {
      */
     public void readSegments(){
         try {
-            List<String> fileNames = RaftFIleUtils.getSortedFilesInDirectory(logDataDir, logDataDir);
+            List<String> fileNames = RaftFileUtils.getSortedFilesInDirectory(logDataDir, logDataDir);
             for (String fileName : fileNames) {
                 String[] splitArray = fileName.split("-");
                 if (splitArray.length != 2) {
@@ -79,7 +79,7 @@ public class SegmentedLog {
                     }
                 }
 
-                segment.setRandomAccessFile(RaftFIleUtils.openFile(logDataDir, fileName, "rw"));
+                segment.setRandomAccessFile(RaftFileUtils.openFile(logDataDir, fileName, "rw"));
                 segment.setFileSize(segment.getRandomAccessFile().length());
                 startLogIndexSegmentMap.put(segment.getStartIndex(), segment);
             }
@@ -99,7 +99,7 @@ public class SegmentedLog {
         long offset = 0;
         while (offset < totalLength) {
             // read log entry from segment, which is the message part in segment file
-            RaftProto.LogEntry entry = RaftFIleUtils.readProtoFromFile(randomAccessFile, RaftProto.LogEntry.class);
+            RaftProto.LogEntry entry = RaftFileUtils.readProtoFromFile(randomAccessFile, RaftProto.LogEntry.class);
             if (entry == null) {
                 throw new RuntimeException("read segment log failed");
             }
@@ -128,7 +128,7 @@ public class SegmentedLog {
         String fileName = logDir + File.separator + "metadata";
         File file = new File(fileName);
         try (RandomAccessFile randomAccessFile = new RandomAccessFile(file, "r")) {
-            return RaftFIleUtils.readProtoFromFile(randomAccessFile, RaftProto.LogMetaData.class);
+            return RaftFileUtils.readProtoFromFile(randomAccessFile, RaftProto.LogMetaData.class);
         }catch (IOException e) {
             LOG.warn("meta file not exist, name={}", fileName);
             return null;
@@ -234,7 +234,7 @@ public class SegmentedLog {
                         File oldFile = new File(oldFullFileName);
                         FileUtils.moveFile(oldFile, newFile);
                         segment.setFileName(newFileName);
-                        segment.setRandomAccessFile(RaftFIleUtils.openFile(logDataDir, newFileName, "r"));
+                        segment.setRandomAccessFile(RaftFileUtils.openFile(logDataDir, newFileName, "r"));
                     }
                 }
                 // create new segment file
@@ -251,7 +251,7 @@ public class SegmentedLog {
                     segment.setStartIndex(newLastLogIndex);
                     segment.setEndIndex(0);
                     segment.setFileName(newSegmentFileName);
-                    segment.setRandomAccessFile(RaftFIleUtils.openFile(logDataDir, newSegmentFileName, "rw"));
+                    segment.setRandomAccessFile(RaftFileUtils.openFile(logDataDir, newSegmentFileName, "rw"));
                     newSegment = segment;
                 } else {
                     newSegment = startLogIndexSegmentMap.lastEntry().getValue();
@@ -267,7 +267,7 @@ public class SegmentedLog {
                 newSegment.getEntries().add(new Segment.Record(
                         newSegment.getRandomAccessFile().getFilePointer(), entry));
                 // write entry to segment file
-                RaftFIleUtils.writeProtoToFile(newSegment.getRandomAccessFile(), entry);
+                RaftFileUtils.writeProtoToFile(newSegment.getRandomAccessFile(), entry);
                 newSegment.setFileSize(newSegment.getRandomAccessFile().length());
                 if (!startLogIndexSegmentMap.containsKey(newSegment.getStartIndex())) {
                     startLogIndexSegmentMap.put(newSegment.getStartIndex(), newSegment);
@@ -293,7 +293,7 @@ public class SegmentedLog {
             if (newFirstIndex > segment.getEndIndex()) {
                 File oldFile = new File(logDataDir + File.separator + segment.getFileName());
                 try {
-                    RaftFIleUtils.closeFile(segment.getRandomAccessFile());
+                    RaftFileUtils.closeFile(segment.getRandomAccessFile());
                     FileUtils.forceDelete(oldFile);
                     totalSize.getAndAdd(-segment.getFileSize());
                     startLogIndexSegmentMap.remove(segment.getStartIndex());
@@ -351,7 +351,7 @@ public class SegmentedLog {
                     segment.setFileName(newFileName);
                     String newFullFileName = logDataDir + File.separator + segment.getFileName();
                     new File(oldFullFileName).renameTo(new File(newFullFileName));
-                    segment.setRandomAccessFile(RaftFIleUtils.openFile(logDataDir, segment.getFileName(), "rw"));
+                    segment.setRandomAccessFile(RaftFileUtils.openFile(logDataDir, segment.getFileName(), "rw"));
                 }
             } catch (IOException ex) {
                 LOG.warn("io exception, msg={}", ex.getMessage());
@@ -385,7 +385,7 @@ public class SegmentedLog {
         String fileName = logDir + File.separator + "metadata";
         File file = new File(fileName);
         try (RandomAccessFile randomAccessFile = new RandomAccessFile(file, "rw")) {
-            RaftFIleUtils.writeProtoToFile(randomAccessFile, metaData);
+            RaftFileUtils.writeProtoToFile(randomAccessFile, metaData);
             LOG.info("new segment meta info, currentTerm={}, votedFor={}, firstLogIndex={}",
                     metaData.getCurrentTerm(), metaData.getVotedFor(), metaData.getFirstLogIndex());
         } catch (IOException ex) {

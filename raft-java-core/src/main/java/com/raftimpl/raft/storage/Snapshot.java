@@ -1,7 +1,7 @@
 package com.raftimpl.raft.storage;
 
 import com.raftimpl.raft.proto.RaftProto;
-import com.raftimpl.raft.util.RaftFIleUtils;
+import com.raftimpl.raft.util.RaftFileUtils;
 import org.apache.commons.io.FileUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -56,9 +56,9 @@ public class Snapshot {
             Path snapshotDataPath = FileSystems.getDefault().getPath(snapshotDataDir);
             snapshotDataPath = snapshotDataPath.toRealPath();
             snapshotDataDir = snapshotDataPath.toString();
-            List<String> fileNames = RaftFIleUtils.getSortedFilesInDirectory(snapshotDataDir, snapshotDataDir);
+            List<String> fileNames = RaftFileUtils.getSortedFilesInDirectory(snapshotDataDir, snapshotDataDir);
             for (String fileName : fileNames) {
-                RandomAccessFile randomAccessFile = RaftFIleUtils.openFile(snapshotDataDir, fileName, "r");
+                RandomAccessFile randomAccessFile = RaftFileUtils.openFile(snapshotDataDir, fileName, "r");
                 SnapshotDataFile snapshotFile = new SnapshotDataFile();
                 snapshotFile.fileName = fileName;
                 snapshotFile.randomAccessFile = randomAccessFile;
@@ -85,7 +85,7 @@ public class Snapshot {
         String fileName = snapshotDir + File.separator + "metadata";
         File file = new File(fileName);
         try (RandomAccessFile randomAccessFile = new RandomAccessFile(file, "r")) {
-            RaftProto.SnapshotMetaData metadata = RaftFIleUtils.readProtoFromFile(
+            RaftProto.SnapshotMetaData metadata = RaftFileUtils.readProtoFromFile(
                     randomAccessFile, RaftProto.SnapshotMetaData.class);
             return metadata;
         } catch (IOException ex) {
@@ -116,11 +116,11 @@ public class Snapshot {
             }
             file.createNewFile();
             randomAccessFile = new RandomAccessFile(file, "rw");
-            RaftFIleUtils.writeProtoToFile(randomAccessFile, snapshotMetaData);
+            RaftFileUtils.writeProtoToFile(randomAccessFile, snapshotMetaData);
         } catch (IOException ex) {
             LOG.warn("meta file not exist, name={}", snapshotMetaFile);
         } finally {
-            RaftFIleUtils.closeFile(randomAccessFile);
+            RaftFileUtils.closeFile(randomAccessFile);
         }
     }
 
