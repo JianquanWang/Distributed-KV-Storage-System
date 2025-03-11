@@ -29,20 +29,59 @@ public class Peer {
     private volatile Boolean voteGranted;
     private volatile boolean isCatchUp;
 
+
     public Peer(RaftProto.Server server) {
         this.server = server;
-        this.raftRpcClient = new RpcClient(new Endpoint(server.getEndpoint().getHost(), server.getEndpoint().getPort()));
+        this.raftRpcClient = new RpcClient(new Endpoint(
+                server.getEndpoint().getHost(),
+                server.getEndpoint().getPort()));
         raftConsensusServiceAsync = BrpcProxy.getProxy(raftRpcClient, RaftConsensusServiceAsync.class);
         isCatchUp = false;
     }
 
-    public void setApplicationRpcClient(){
-        this.applicationRpcClient = new RpcClient(new Endpoint(server.getEndpoint().getHost(), server.getEndpoint().getPort()));
+    public RpcClient createCLient() {
+        return new RpcClient(new Endpoint(
+                server.getEndpoint().getHost(),
+                server.getEndpoint().getPort()
+        ));
+    }
+
+    public RaftProto.Server getServer() {
+        return server;
+    }
+
+    public RpcClient getRaftRpcClient() {
+        return raftRpcClient;
+    }
+
+    public RaftConsensusServiceAsync getRaftConsensusServiceAsync() {
+        return raftConsensusServiceAsync;
+    }
+
+    public long getNextIndex() {
+        return nextIndex;
+    }
+
+    public void setNextIndex(long nextIndex) {
+        this.nextIndex = nextIndex;
+    }
+
+    public long getMatchIndex() {
+        return matchIndex;
+    }
+
+    public void setMatchIndex(long matchIndex) {
+        this.matchIndex = matchIndex;
     }
 
     public Boolean isVoteGranted() {
         return voteGranted;
     }
+
+    public void setVoteGranted(Boolean voteGranted) {
+        this.voteGranted = voteGranted;
+    }
+
 
     public boolean isCatchUp() {
         return isCatchUp;

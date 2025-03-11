@@ -17,10 +17,7 @@ import org.slf4j.LoggerFactory;
 
 import java.io.File;
 import java.io.IOException;
-import java.util.Arrays;
-import java.util.List;
-import java.util.Map;
-import java.util.TreeMap;
+import java.util.*;
 import java.util.concurrent.*;
 import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.Lock;
@@ -42,6 +39,8 @@ import java.util.concurrent.locks.ReentrantLock;
  * - Scheduled executors for election timeouts/heartbeats
  */
 public class RaftNode {
+
+
 
     public enum NodeState {
         STATE_FOLLOWER,
@@ -165,6 +164,56 @@ public class RaftNode {
                 peerMap.put(server.getServerId(), peer);
             }
         }
+    }
+
+    public boolean replicate(byte[] data, RaftProto.EntryType entryType) {
+        lock.lock();
+        long newLastLogIndex = 0;
+        try {
+            if (state != NodeState.STATE_LEADER) {
+                LOG.debug("I'm not the leader");
+                return false;
+            }
+            RaftProto.LogEntry logEntry = RaftProto.LogEntry.newBuilder()
+                    .setTerm(currentTerm)
+                    .setType(entryType)
+                    .setData(ByteString.copyFrom(data)).build();
+            List<RaftProto.LogEntry> entries = new ArrayList<>();
+            entries.add(logEntry);
+            newLastLogIndex = raftLog.append(entries);
+
+            for (RaftProto.Server server : configuration.getServersList()) {
+                final Peer peer = peerMap.get(server.getServerId());
+                executorService.submit(new Runnable() {
+                    @Override
+                    public void run() {
+                        appendEntries(peer);
+                    }
+                });
+            }
+
+            if (raftOptions.isAsyncWrite()) {
+                return true;
+            }
+
+            // sync wait commitIndex >= newLastLogIndex
+            long startTime = System.currentTimeMillis();
+            while (lastAppliedIndex < newLastLogIndex) {
+                if (System.currentTimeMillis() - startTime >= raftOptions.getMaxAwaitTimeout()) {
+                    break;
+                }
+                commitIndexCondition.await(raftOptions.getMaxAwaitTimeout(), TimeUnit.MILLISECONDS);
+            }
+        } catch (Exception ex) {
+            ex.printStackTrace();
+        } finally {
+            lock.unlock();
+        }
+        LOG.debug("lastAppliedIndex={} newLastLogIndex={}", lastAppliedIndex, newLastLogIndex);
+        if (lastAppliedIndex < newLastLogIndex) {
+            return false;
+        }
+        return true;
     }
 
     public void takeSnapshot() {
