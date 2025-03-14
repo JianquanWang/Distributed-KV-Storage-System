@@ -1,7 +1,7 @@
-# raft-java
+# Distributed-KV-Storage-System
 
 ## Acknowledgement
-This Raft-Java was ported from Wenwei Hu's raft-java with some optimizing and improvement. Thanks to the Wenwei Hu for opening up such a great Java RAFT implementation.
+The Raft-Java-Core was ported from Wenwei Hu's raft-java with some optimizing and improvement. Thanks to the Wenwei Hu for opening up such a great Java RAFT implementation.
 
 ## Quick Start
 To deploy cluster with 3 instances locally，run：<br>
