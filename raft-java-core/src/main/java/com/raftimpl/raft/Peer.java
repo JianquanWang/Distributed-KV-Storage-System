@@ -2,7 +2,7 @@ package com.raftimpl.raft;
 
 import com.baidu.brpc.client.BrpcProxy;
 import com.baidu.brpc.client.RpcClient;
-import com.baidu.brpc.client.channel.Endpoint;
+import com.baidu.brpc.client.instance.Endpoint;
 import com.raftimpl.raft.proto.RaftProto;
 import com.raftimpl.raft.service.RaftConsensusServiceAsync;
 import lombok.Getter;
@@ -17,12 +17,12 @@ public class Peer {
     private RpcClient applicationRpcClient;
     @Getter
     private final RaftConsensusServiceAsync raftConsensusServiceAsync;
-    @Setter
     @Getter
+    @Setter
     // the next index will send to followers
     private long nextIndex;
-    @Setter
     @Getter
+    @Setter
     // the latest index of replicated log
     private long matchIndex;
     @Setter
@@ -39,47 +39,19 @@ public class Peer {
         isCatchUp = false;
     }
 
-    public RpcClient createCLient() {
+    public RpcClient createClient() {
         return new RpcClient(new Endpoint(
                 server.getEndpoint().getHost(),
                 server.getEndpoint().getPort()
         ));
     }
 
-    public RaftProto.Server getServer() {
+    public RaftProto.Server getStorageServer() {
         return server;
-    }
-
-    public RpcClient getRaftRpcClient() {
-        return raftRpcClient;
-    }
-
-    public RaftConsensusServiceAsync getRaftConsensusServiceAsync() {
-        return raftConsensusServiceAsync;
-    }
-
-    public long getNextIndex() {
-        return nextIndex;
-    }
-
-    public void setNextIndex(long nextIndex) {
-        this.nextIndex = nextIndex;
-    }
-
-    public long getMatchIndex() {
-        return matchIndex;
-    }
-
-    public void setMatchIndex(long matchIndex) {
-        this.matchIndex = matchIndex;
     }
 
     public Boolean isVoteGranted() {
         return voteGranted;
-    }
-
-    public void setVoteGranted(Boolean voteGranted) {
-        this.voteGranted = voteGranted;
     }
 
 

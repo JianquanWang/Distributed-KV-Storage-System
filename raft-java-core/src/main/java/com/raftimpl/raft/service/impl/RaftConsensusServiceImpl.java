@@ -190,7 +190,7 @@ public class RaftConsensusServiceImpl implements RaftConsensusService {
     }
 
     @Override
-    public RaftProto.InstallSnapshotResponse installSnapshot(RaftProto.InstallSnapshotRequest request) {
+    public RaftProto.InstallSnapshotResponse installSnap(RaftProto.InstallSnapshotRequest request) {
         RaftProto.InstallSnapshotResponse.Builder responseBuilder
                 = RaftProto.InstallSnapshotResponse.newBuilder();
         responseBuilder.setResCode(RaftProto.ResCode.RES_CODE_FAIL);
@@ -212,12 +212,12 @@ public class RaftConsensusServiceImpl implements RaftConsensusService {
             raftNode.getLock().unlock();
         }
 
-        if (raftNode.getSnapshot().getIsTakeSnapshot().get()) {
+        if (raftNode.getSnapshot().getIsTakeSnap().get()) {
             LOG.warn("alreay in take snapshot, do not handle install snapshot request now");
             return responseBuilder.build();
         }
 
-        raftNode.getSnapshot().getIsInstallSnapshot().set(true);
+        raftNode.getSnapshot().getIsInstallSnap().set(true);
         RandomAccessFile randomAccessFile = null;
         raftNode.getSnapshot().getLock().lock();
         try {
@@ -230,7 +230,7 @@ public class RaftConsensusServiceImpl implements RaftConsensusService {
                 }
                 file.mkdir();
                 LOG.info("begin accept install snapshot request from serverId={}", request.getServerId());
-                raftNode.getSnapshot().updateMetaData(tmpSnapshotDir,
+                raftNode.getSnapshot().updateMeta(tmpSnapshotDir,
                         request.getSnapshotMetaData().getLastIncludedIndex(),
                         request.getSnapshotMetaData().getLastIncludedTerm(),
                         request.getSnapshotMetaData().getConfiguration());
@@ -280,13 +280,13 @@ public class RaftConsensusServiceImpl implements RaftConsensusService {
             // apply state machine
             // TODO: make this async
             String snapshotDataDir = raftNode.getSnapshot().getSnapshotDir() + File.separator + "data";
-            raftNode.getStateMachine().readSnapshot(snapshotDataDir);
+            raftNode.getStateMachine().readSnap(snapshotDataDir);
             long lastSnapshotIndex;
             // reload snapshot
             raftNode.getSnapshot().getLock().lock();
             try {
                 raftNode.getSnapshot().reload();
-                lastSnapshotIndex = raftNode.getSnapshot().getMetaData().getLastIncludedIndex();
+                lastSnapshotIndex = raftNode.getSnapshot().getMeta().getLastIncludedIndex();
             } finally {
                 raftNode.getSnapshot().getLock().unlock();
             }
@@ -302,7 +302,7 @@ public class RaftConsensusServiceImpl implements RaftConsensusService {
         }
 
         if (request.getIsLast()) {
-            raftNode.getSnapshot().getIsInstallSnapshot().set(false);
+            raftNode.getSnapshot().getIsInstallSnap().set(false);
         }
 
         return responseBuilder.build();
@@ -320,7 +320,7 @@ public class RaftConsensusServiceImpl implements RaftConsensusService {
                 RaftProto.LogEntry entry = raftNode.getRaftLog().getEntry(index);
                 if (entry != null) {
                     if (entry.getType() == RaftProto.EntryType.ENTRY_TYPE_DATA) {
-                        raftNode.getStateMachine().apply(entry.getData().toByteArray());
+                        raftNode.getStateMachine().applyData(entry.getData().toByteArray());
                     } else if (entry.getType() == RaftProto.EntryType.ENTRY_TYPE_CONFIGURATION) {
                         raftNode.applyConfiguration(entry);
                     }
@@ -328,5 +328,18 @@ public class RaftConsensusServiceImpl implements RaftConsensusService {
                 raftNode.setLastAppliedIndex(index);
             }
         }
+    }
+    @Override
+    public RaftProto.GetLeaderCommitIndexResponse getLeaderCommitIndex(RaftProto.GetLeaderCommitIndexRequest request) {
+        RaftProto.GetLeaderCommitIndexResponse.Builder responseBuilder = RaftProto.GetLeaderCommitIndexResponse.newBuilder();
+        raftNode.getLock().lock();
+        long commitIndex;
+        try {
+            commitIndex = raftNode.getCommitIndex();
+        } finally {
+            raftNode.getLock().unlock();
+        }
+        responseBuilder.setCommitIndex(commitIndex);
+        return responseBuilder.build();
     }
 }

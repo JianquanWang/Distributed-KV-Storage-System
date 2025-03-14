@@ -116,23 +116,23 @@ public class RaftNode {
 
         currentTerm = raftLog.getMetaData().getCurrentTerm();
         votedFor = raftLog.getMetaData().getVotedFor();
-        commitIndex = Math.max(snapshot.getMetaData().getLastIncludedIndex(), raftLog.getMetaData().getCommitIndex());
+        commitIndex = Math.max(snapshot.getMeta().getLastIncludedIndex(), raftLog.getMetaData().getCommitIndex());
         // discard old log entries
-        if (snapshot.getMetaData().getLastIncludedIndex() > 0 && raftLog.getFirstLogIndex() <= snapshot.getMetaData().getLastIncludedIndex()) {
-            raftLog.truncatePrefix(snapshot.getMetaData().getLastIncludedIndex() + 1);
+        if (snapshot.getMeta().getLastIncludedIndex() > 0 && raftLog.getFirstLogIndex() <= snapshot.getMeta().getLastIncludedIndex()) {
+            raftLog.truncatePrefix(snapshot.getMeta().getLastIncludedIndex() + 1);
         }
         // apply state machine
-        RaftProto.Configuration snapshotConfiguration = snapshot.getMetaData().getConfiguration();
+        RaftProto.Configuration snapshotConfiguration = snapshot.getMeta().getConfiguration();
         if (snapshotConfiguration.getServersCount() > 0) {
             configuration = snapshotConfiguration;
         }
         String snapshotDataDir = snapshot.getSnapshotDir() + File.separator + "data";
-        stateMachine.readSnapshot(snapshotDataDir);
+        stateMachine.readSnap(snapshotDataDir);
         // catch up the latest commited index
-        for (long index = snapshot.getMetaData().getLastIncludedIndex() + 1; index <= commitIndex; index++) {
+        for (long index = snapshot.getMeta().getLastIncludedIndex() + 1; index <= commitIndex; index++) {
             RaftProto.LogEntry logEntry = raftLog.getEntry(index);
             if(logEntry.getType() == RaftProto.EntryType.ENTRY_TYPE_DATA){
-                stateMachine.apply(logEntry.getData().toByteArray());
+                stateMachine.applyData(logEntry.getData().toByteArray());
             } else if (logEntry.getType() == RaftProto.EntryType.ENTRY_TYPE_CONFIGURATION){
                 applyConfiguration(logEntry);
             }
@@ -217,12 +217,12 @@ public class RaftNode {
     }
 
     public void takeSnapshot() {
-        if (snapshot.getIsInstallSnapshot().get()) {
+        if (snapshot.getIsInstallSnap().get()) {
             LOG.info("Leading and follower are already installing snapshot, ignore taking snapshot action");
             return;
         }
 
-        snapshot.getIsTakeSnapshot().compareAndSet(false, true);
+        snapshot.getIsTakeSnap().compareAndSet(false, true);
         try {
             long localLastAppliedIndex;
             long lastAppliedTerm = 0;
@@ -232,7 +232,7 @@ public class RaftNode {
                 if (raftLog.getTotalSize() < raftOptions.getSnapshotMinLogSize()) {
                     return;
                 }
-                if (lastAppliedIndex <= snapshot.getMetaData().getLastIncludedIndex()) {
+                if (lastAppliedIndex <= snapshot.getMeta().getLastIncludedIndex()) {
                     return;
                 }
                 localLastAppliedIndex = lastAppliedIndex;
@@ -251,10 +251,10 @@ public class RaftNode {
                 LOG.info("start taking snapshot");
                 // take snapshot
                 String tmpSnapshotDir = snapshot.getSnapshotDir() + ".tmp";
-                snapshot.updateMetaData(tmpSnapshotDir, localLastAppliedIndex,
+                snapshot.updateMeta(tmpSnapshotDir, localLastAppliedIndex,
                         lastAppliedTerm, localConfiguration.build());
                 String tmpSnapshotDataDir = tmpSnapshotDir + File.separator + "data";
-                stateMachine.writeSnapshot(tmpSnapshotDataDir);
+                stateMachine.writeSnap(snapshot.getSnapshotDir(), tmpSnapshotDataDir, this, localLastAppliedIndex);
                 // rename tmp snapshot dir to snapshot dir
                 try {
                     File snapshotDirFile = new File(snapshot.getSnapshotDir());
@@ -278,7 +278,7 @@ public class RaftNode {
                 snapshot.getLock().lock();
                 try {
                     snapshot.reload();
-                    lastSnapshotIndex = snapshot.getMetaData().getLastIncludedIndex();
+                    lastSnapshotIndex = snapshot.getMeta().getLastIncludedIndex();
                 } finally {
                     snapshot.getLock().unlock();
                 }
@@ -294,7 +294,7 @@ public class RaftNode {
                 }
             }
         } finally {
-            snapshot.getIsTakeSnapshot().compareAndSet(true, false);
+            snapshot.getIsTakeSnap().compareAndSet(true, false);
         }
     }
 
@@ -616,8 +616,8 @@ public class RaftNode {
         long lastSnapshotTerm;
         snapshot.getLock().lock();
         try {
-            lastSnapshotIndex = snapshot.getMetaData().getLastIncludedIndex();
-            lastSnapshotTerm = snapshot.getMetaData().getLastIncludedTerm();
+            lastSnapshotIndex = snapshot.getMeta().getLastIncludedIndex();
+            lastSnapshotTerm = snapshot.getMeta().getLastIncludedTerm();
         } finally {
             snapshot.getLock().unlock();
         }
@@ -701,11 +701,11 @@ public class RaftNode {
     }
 
     private boolean installSnapshot(Peer peer) {
-        if (snapshot.getIsTakeSnapshot().get()) {
+        if (snapshot.getIsTakeSnap().get()) {
             LOG.info("already in take snapshot, please send install snapshot request later");
             return false;
         }
-        if (!snapshot.getIsInstallSnapshot().compareAndSet(false, true)) {
+        if (!snapshot.getIsInstallSnap().compareAndSet(false, true)) {
             LOG.info("already in install snapshot");
             return false;
         }
@@ -734,7 +734,7 @@ public class RaftNode {
                         request.getFileName(), request.getOffset(), request.getData().toByteArray().length,
                         request.getIsFirst(), request.getIsLast());
                 RaftProto.InstallSnapshotResponse response
-                        = peer.getRaftConsensusServiceAsync().installSnapshot(request);
+                        = peer.getRaftConsensusServiceAsync().installSnap(request);
                 if (response != null && response.getResCode() == RaftProto.ResCode.RES_CODE_SUCCESS) {
                     lastFileName = request.getFileName();
                     lastOffset = request.getOffset();
@@ -749,7 +749,7 @@ public class RaftNode {
                 long lastIncludedIndexInSnapshot;
                 snapshot.getLock().lock();
                 try {
-                    lastIncludedIndexInSnapshot = snapshot.getMetaData().getLastIncludedIndex();
+                    lastIncludedIndexInSnapshot = snapshot.getMeta().getLastIncludedIndex();
                 } finally {
                     snapshot.getLock().unlock();
                 }
@@ -763,7 +763,7 @@ public class RaftNode {
             }
         } finally {
             snapshot.closeSnapshotDataFiles(snapshotDataFileMap);
-            snapshot.getIsInstallSnapshot().compareAndSet(true, false);
+            snapshot.getIsInstallSnap().compareAndSet(true, false);
         }
         LOG.info("end send install snapshot request to server={}, success={}",
                 peer.getServer().getServerId(), isSuccess);
@@ -801,7 +801,7 @@ public class RaftNode {
         for (long index = oldCommitIndex + 1; index <= newCommitIndex; index++) {
             RaftProto.LogEntry entry = raftLog.getEntry(index);
             if (entry.getType() == RaftProto.EntryType.ENTRY_TYPE_DATA) {
-                stateMachine.apply(entry.getData().toByteArray());
+                stateMachine.applyData(entry.getData().toByteArray());
             } else if (entry.getType() == RaftProto.EntryType.ENTRY_TYPE_CONFIGURATION) {
                 applyConfiguration(entry);
             }
@@ -816,7 +816,7 @@ public class RaftNode {
             return raftLog.getEntryTerm(lastLogIndex);
         } else {
             // log is empty，lastLogIndex == lastSnapshotIndex
-            return snapshot.getMetaData().getLastIncludedTerm();
+            return snapshot.getMeta().getLastIncludedTerm();
         }
     }
 
@@ -881,7 +881,7 @@ public class RaftNode {
                     && currentOffset + currentDataSize >= currentDataFile.randomAccessFile.length());
             if (currentFileName.equals(snapshotDataFileMap.firstKey()) && currentOffset == 0) {
                 requestBuilder.setIsFirst(true);
-                requestBuilder.setSnapshotMetaData(snapshot.getMetaData());
+                requestBuilder.setSnapshotMetaData(snapshot.getMeta());
             } else {
                 requestBuilder.setIsFirst(false);
             }
@@ -902,5 +902,55 @@ public class RaftNode {
 
         return requestBuilder.build();
     }
+    public boolean waitForLeaderCommitIndex() {
+        long readIndex = -1;
+        boolean callLeader = false;
+        Peer leader = null;
 
+        lock.lock();
+        try {
+            // 记录commitIndex为readIndex
+            // 如果当前节点是Leader节点，则直接获取当前commitIndex，否则通过RPC从Leader节点获取commitIndex
+            if (leaderId == localServer.getServerId()) {
+                readIndex = commitIndex;
+            } else {
+                callLeader = true;
+                leader = peerMap.get(leaderId);
+            }
+        } finally {
+            lock.unlock();
+        }
+
+        if (callLeader && leader != null) {
+            RaftProto.GetLeaderCommitIndexRequest request = RaftProto.GetLeaderCommitIndexRequest.newBuilder().build();
+            RaftProto.GetLeaderCommitIndexResponse response =
+                    leader.getRaftConsensusServiceAsync().getLeaderCommitIndex(request);
+            if (response == null) {
+                LOG.warn("acquire commit index from leader[{}:{}] failed",
+                        leader.getStorageServer().getEndpoint().getHost(),
+                        leader.getStorageServer().getEndpoint().getPort());
+                return false;
+            }
+            readIndex = response.getCommitIndex();
+        }
+
+        if (readIndex == -1) {
+            return false;
+        }
+
+        lock.lock();
+        try {
+            // 等待readIndex之前的日志条目被应用到复制状态机
+            long startTime = System.currentTimeMillis();
+            while (lastAppliedIndex < readIndex
+                    && System.currentTimeMillis() - startTime < raftOptions.getMaxAwaitTimeout()) {
+                commitIndexCondition.await(raftOptions.getMaxAwaitTimeout(), TimeUnit.MILLISECONDS);
+            }
+            return lastAppliedIndex >= readIndex;
+        } catch (InterruptedException ignore) {
+        } finally {
+            lock.unlock();
+        }
+        return false;
+    }
 }

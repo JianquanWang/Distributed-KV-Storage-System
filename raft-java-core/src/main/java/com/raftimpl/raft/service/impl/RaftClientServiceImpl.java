@@ -23,7 +23,7 @@ public class RaftClientServiceImpl implements RaftClientService {
     }
 
     @Override
-    public RaftProto.GetLeaderResponse getLeader(RaftProto.GetLeaderRequest request) {
+    public RaftProto.GetLeaderResponse getNowLeader(RaftProto.GetLeaderRequest request) {
         LOG.info("receive getLeader request");
         RaftProto.GetLeaderResponse.Builder responseBuilder = RaftProto.GetLeaderResponse.newBuilder();
         responseBuilder.setResCode(RaftProto.ResCode.RES_CODE_SUCCESS);
@@ -56,7 +56,7 @@ public class RaftClientServiceImpl implements RaftClientService {
     }
 
     @Override
-    public RaftProto.GetConfigurationResponse getConfiguration(RaftProto.GetConfigurationRequest request) {
+    public RaftProto.GetConfigurationResponse getConfig(RaftProto.GetConfigurationRequest request) {
         RaftProto.GetConfigurationResponse.Builder responseBuilder
                 = RaftProto.GetConfigurationResponse.newBuilder();
         responseBuilder.setResCode(RaftProto.ResCode.RES_CODE_SUCCESS);
@@ -77,7 +77,7 @@ public class RaftClientServiceImpl implements RaftClientService {
     }
 
     @Override
-    public RaftProto.AddPeersResponse addPeers(RaftProto.AddPeersRequest request) {
+    public RaftProto.AddPeersResponse addStoragePeers(RaftProto.AddPeersRequest request) {
         RaftProto.AddPeersResponse.Builder responseBuilder = RaftProto.AddPeersResponse.newBuilder();
         responseBuilder.setResCode(RaftProto.ResCode.RES_CODE_FAIL);
         if (request.getServersCount() == 0
@@ -166,7 +166,7 @@ public class RaftClientServiceImpl implements RaftClientService {
     }
 
     @Override
-    public RaftProto.RemovePeersResponse removePeers(RaftProto.RemovePeersRequest request) {
+    public RaftProto.RemovePeersResponse removeStoragePeers(RaftProto.RemovePeersRequest request) {
         RaftProto.RemovePeersResponse.Builder responseBuilder = RaftProto.RemovePeersResponse.newBuilder();
         responseBuilder.setResCode(RaftProto.ResCode.RES_CODE_FAIL);
 

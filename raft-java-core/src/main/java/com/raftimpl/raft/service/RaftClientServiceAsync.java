@@ -5,19 +5,19 @@ import java.util.concurrent.Future;
 import com.baidu.brpc.client.RpcCallback;
 
 public interface RaftClientServiceAsync extends RaftClientService {
-    Future<RaftProto.GetLeaderResponse> getLeader(
+    Future<RaftProto.GetLeaderResponse> getNowLeader(
             RaftProto.GetLeaderRequest request,
             RpcCallback<RaftProto.GetLeaderResponse> callback);
 
-    Future<RaftProto.GetConfigurationResponse> getConfiguration(
+    Future<RaftProto.GetConfigurationResponse> getConfig(
             RaftProto.GetConfigurationRequest request,
             RpcCallback<RaftProto.GetConfigurationResponse> callback);
 
-    Future<RaftProto.AddPeersResponse> addPeers(
+    Future<RaftProto.AddPeersResponse> addStoragePeers(
             RaftProto.AddPeersRequest request,
             RpcCallback<RaftProto.AddPeersResponse> callback);
 
-    Future<RaftProto.RemovePeersResponse> removePeers(
+    Future<RaftProto.RemovePeersResponse> removeStoragePeers(
             RaftProto.RemovePeersRequest request,
             RpcCallback<RaftProto.RemovePeersResponse> callback);
 }

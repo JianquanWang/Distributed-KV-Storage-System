@@ -43,7 +43,7 @@ public class Snapshot {
     }
 
     public void reload() {
-        metaData = this.readMetaData();
+        metaData = this.readMeta();
         if (metaData == null) {
             metaData = RaftProto.SnapshotMetaData.newBuilder().build();
         }
@@ -81,7 +81,7 @@ public class Snapshot {
         }
     }
 
-    public RaftProto.SnapshotMetaData readMetaData() {
+    public RaftProto.SnapshotMetaData readMeta() {
         String fileName = snapshotDir + File.separator + "metadata";
         File file = new File(fileName);
         try (RandomAccessFile randomAccessFile = new RandomAccessFile(file, "r")) {
@@ -94,7 +94,7 @@ public class Snapshot {
         }
     }
 
-    public void updateMetaData(String dir,
+    public void updateMeta(String dir,
                                Long lastIncludedIndex,
                                Long lastIncludedTerm,
                                RaftProto.Configuration configuration) {
@@ -124,7 +124,7 @@ public class Snapshot {
         }
     }
 
-    public RaftProto.SnapshotMetaData getMetaData() {
+    public RaftProto.SnapshotMetaData getMeta() {
         return metaData;
     }
 
@@ -132,11 +132,11 @@ public class Snapshot {
         return snapshotDir;
     }
 
-    public AtomicBoolean getIsInstallSnapshot() {
+    public AtomicBoolean getIsInstallSnap() {
         return isInstallSnapshot;
     }
 
-    public AtomicBoolean getIsTakeSnapshot() {
+    public AtomicBoolean getIsTakeSnap() {
         return isTakeSnapshot;
     }
 

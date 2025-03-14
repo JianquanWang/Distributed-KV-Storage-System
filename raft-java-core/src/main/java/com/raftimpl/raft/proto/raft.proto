@@ -128,3 +128,10 @@ message GetConfigurationResponse {
     Server leader = 3;
     repeated Server servers = 4;
 }
+
+message GetLeaderCommitIndexRequest {
+}
+
+message GetLeaderCommitIndexResponse {
+  uint64 commit_index = 1;
+}
