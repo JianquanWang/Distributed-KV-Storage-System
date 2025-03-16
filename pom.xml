@@ -18,7 +18,6 @@
         <module>raft-java-core</module>
         <module>distribute-java-cluster</module>
         <module>cluster-admin</module>
-        <module>web-client</module>
     </modules>
 
 </project>

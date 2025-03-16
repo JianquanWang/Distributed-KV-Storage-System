@@ -10,12 +10,15 @@ public class ClientMain_Test {
     public static void main(String[] args) {
 
 //        String ipPorts = "list://192.168.91.134:8051,192.168.91.134:8052,192.168.91.134:8053";
-        String ipport = "list://127.0.0.1:8053";
-        String key = "username123";
+        String ipPorts = args[0];
+        String key = args[1];
         String value = null;
+        if (args.length > 2) {
+            value = args[2];
+        }
 
         // init rpc client
-        RpcClient rpcClient = new RpcClient(ipport);
+        RpcClient rpcClient = new RpcClient(ipPorts);
 
         ExampleService exampleService = BrpcProxy.getProxy(rpcClient, ExampleService.class);
         final JsonFormat jsonFormat = new JsonFormat();

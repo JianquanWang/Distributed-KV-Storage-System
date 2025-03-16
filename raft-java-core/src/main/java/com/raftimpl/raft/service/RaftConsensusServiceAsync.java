@@ -14,7 +14,7 @@ public interface RaftConsensusServiceAsync extends RaftConsensusService {
     Future<RaftProto.AppendEntriesResponse> appendEntries(
             RaftProto.AppendEntriesRequest request,
             RpcCallback<RaftProto.AppendEntriesResponse> callback);
-    Future<RaftProto.InstallSnapshotResponse> installSnapshot(
+    Future<RaftProto.InstallSnapshotResponse> installSnap(
             RaftProto.InstallSnapshotRequest request,
             RpcCallback<RaftProto.InstallSnapshotResponse> callback);
 }

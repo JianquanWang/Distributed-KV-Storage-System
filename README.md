@@ -7,7 +7,7 @@ The Raft-Java-Core was ported from Wenwei Hu's raft-java with some optimizing an
 To deploy cluster with 3 instances locally，run：<br>
 cd distribute-java-cluster && sh deploy.sh <br>
 This script will deploy 3 instances in distribute-java-cluster/env named as example1、example2、example3；<br>
-It also create a client floder for testing raft cluster's read-write ability.<br>
+It also create a client folder for testing raft cluster's read-write ability.<br>
 After successfully deployment，test writing operation，run：
 cd env/client <br>
 ./bin/run_client.sh "list://127.0.0.1:8051,127.0.0.1:8052,127.0.0.1:8053" hello world <br>

@@ -89,6 +89,7 @@ public class RaftNode {
 
     @Getter
     private final Lock lock = new ReentrantLock();
+    @Getter
     private final Condition commitIndexCondition = lock.newCondition();
     @Getter
     private final Condition catchUpCondition = lock.newCondition();
@@ -302,7 +303,14 @@ public class RaftNode {
         if (electionScheduledFuture != null && !electionScheduledFuture.isDone()) {
             electionScheduledFuture.cancel(true);
         }
-        electionScheduledFuture = scheduledExecutorService.schedule(this::startPreVote, getElectionTimeoutMs(), TimeUnit.MILLISECONDS);
+        electionScheduledFuture = scheduledExecutorService.schedule(
+                new Runnable(){
+
+                    @Override
+                    public void run() {
+                        startPreVote();
+                    }
+                }, getElectionTimeoutMs(), TimeUnit.MILLISECONDS);
     }
 
     private int getElectionTimeoutMs() {
@@ -413,8 +421,8 @@ public class RaftNode {
         @Override
         public void fail(Throwable e) {
             LOG.warn("pre vote with peer[{}:{}] failed",
-                    peer.getServer().getEndpoint().getHost(),
-                    peer.getServer().getEndpoint().getPort());
+                    peer.getStorageServer().getEndpoint().getHost(),
+                    peer.getStorageServer().getEndpoint().getPort());
             peer.setVoteGranted(Boolean.FALSE);
         }
     }
@@ -566,10 +574,11 @@ public class RaftNode {
         }
         
         // Initialize leader replication state
+        /*
         for (Peer peer : peerMap.values()) {
             peer.setNextIndex(raftLog.getLastLogIndex() + 1);
             peer.setMatchIndex(0L);
-        }
+        }*/
         
         // Send initial heartbeat and schedule periodic ones
         startNewHeartbeat();
@@ -589,7 +598,7 @@ public class RaftNode {
         }
         resetHeartbeatTimer();
     }
-    public void appendEntries(Peer peer) {
+    public boolean appendEntries(Peer peer) {
         RaftProto.AppendEntriesRequest.Builder requestBuilder = RaftProto.AppendEntriesRequest.newBuilder();
         long prevLogIndex;
         long numEntries;
@@ -608,7 +617,7 @@ public class RaftNode {
         LOG.debug("is need snapshot={}, peer={}", isNeedInstallSnapshot, peer.getServer().getServerId());
         if (isNeedInstallSnapshot) {
             if (!installSnapshot(peer)) {
-                return;
+                return false;
             }
         }
 
@@ -658,7 +667,7 @@ public class RaftNode {
                     peerMap.remove(peer.getServer().getServerId());
                     peer.getRaftRpcClient().stop();
                 }
-                return;
+                return false;
             }
             LOG.info("AppendEntries response[{}] from server {} " +
                             "in term {} (my term is {})",
@@ -688,6 +697,7 @@ public class RaftNode {
         } finally {
             lock.unlock();
         }
+        return true;
     }
 
     private long packEntries(long nextIndex, RaftProto.AppendEntriesRequest.Builder requestBuilder) {
@@ -950,6 +960,54 @@ public class RaftNode {
         } catch (InterruptedException ignore) {
         } finally {
             lock.unlock();
+        }
+        return false;
+    }
+
+    public boolean waitUntilApplied() {
+        final CountDownLatch cdl;
+        long readIndex;
+        lock.lock();
+        try {
+            // 记录当前commitIndex为readIndex
+            // 创建CountDownLatch，值为Peer节点数的一半（向上取整，加上Leader节点本身即可超过半数）
+            readIndex = commitIndex;
+            int peerNum = configuration.getServersList().size();
+            cdl = new CountDownLatch((peerNum + 1) >> 1);
+
+            // 向所有Follower节点发送心跳包，如果得到响应就让CountDownLatch减一
+            LOG.debug("ensure leader, peers={}", peerMap.keySet());
+            for (final Peer peer : peerMap.values()) {
+                executorService.submit(new Runnable() {
+                    @Override
+                    public void run() {
+                        if (appendEntries(peer)) {
+                            cdl.countDown();
+                        }
+                    }
+                });
+            }
+        } finally {
+            lock.unlock();
+        }
+
+        // 等待CountDownLatch减为0或超时
+        try {
+            if (cdl.await(raftOptions.getMaxAwaitTimeout(), TimeUnit.MILLISECONDS)) {
+                lock.lock();
+                try {
+                    // 如果CountDownLatch在超时时间内减为0，则成功确认当前节点是Leader节点，等待readIndex之前的日志条目被应用到复制状态机
+                    long startTime = System.currentTimeMillis();
+                    while (lastAppliedIndex < readIndex
+                            && System.currentTimeMillis() - startTime < raftOptions.getMaxAwaitTimeout()) {
+                        commitIndexCondition.await(raftOptions.getMaxAwaitTimeout(), TimeUnit.MILLISECONDS);
+                    }
+                    return lastAppliedIndex >= readIndex;
+                } finally {
+                    lock.unlock();
+                }
+            }
+        } catch (InterruptedException ignore) {
         }
         return false;
     }

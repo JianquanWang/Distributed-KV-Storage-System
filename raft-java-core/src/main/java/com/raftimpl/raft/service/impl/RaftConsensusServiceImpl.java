@@ -328,6 +328,8 @@ public class RaftConsensusServiceImpl implements RaftConsensusService {
                 raftNode.setLastAppliedIndex(index);
             }
         }
+        // 在Follower-Read（Read Index）下，Follower会进入等待条件，等待日志应用到复制状态机，因此需要唤醒等待线程
+        raftNode.getCommitIndexCondition().signalAll();
     }
     @Override
     public RaftProto.GetLeaderCommitIndexResponse getLeaderCommitIndex(RaftProto.GetLeaderCommitIndexRequest request) {
